@@ -11,10 +11,11 @@ processFields = [
 
 functionManager = currentProgram.getFunctionManager()
 baseAddress = currentProgram.getImageBase()
-USER_DEFINED = ghidra.program.model.symbol.SourceType.USER_DEFINED
+from ghidra.program.model.symbol import SourceType
+USER_DEFINED = SourceType.USER_DEFINED
 
 def get_addr(addr):
-	return baseAddress.add(addr)
+	return baseAddress.add(int(addr))
 
 def set_name(addr, name):
 	name = name.replace(' ', '-')
@@ -34,7 +35,7 @@ if "ScriptMethod" in data and "ScriptMethod" in processFields:
 	monitor.setMessage("Methods")
 	for scriptMethod in scriptMethods:
 		addr = get_addr(scriptMethod["Address"])
-		name = scriptMethod["Name"].encode("utf-8")
+		name = scriptMethod["Name"]
 		set_name(addr, name)
 		monitor.incrementProgress(1)
 
@@ -45,7 +46,7 @@ if "ScriptString" in data and "ScriptString" in processFields:
 	monitor.setMessage("Strings")
 	for scriptString in scriptStrings:
 		addr = get_addr(scriptString["Address"])
-		value = scriptString["Value"].encode("utf-8")
+		value = scriptString["Value"]
 		name = "StringLiteral_" + str(index)
 		createLabel(addr, name, True, USER_DEFINED)
 		setEOLComment(addr, value)
@@ -58,7 +59,7 @@ if "ScriptMetadata" in data and "ScriptMetadata" in processFields:
 	monitor.setMessage("Metadata")
 	for scriptMetadata in scriptMetadatas:
 		addr = get_addr(scriptMetadata["Address"])
-		name = scriptMetadata["Name"].encode("utf-8")
+		name = scriptMetadata["Name"]
 		set_name(addr, name)
 		setEOLComment(addr, name)
 		monitor.incrementProgress(1)
@@ -69,7 +70,7 @@ if "ScriptMetadataMethod" in data and "ScriptMetadataMethod" in processFields:
 	monitor.setMessage("Metadata Methods")
 	for scriptMetadataMethod in scriptMetadataMethods:
 		addr = get_addr(scriptMetadataMethod["Address"])
-		name = scriptMetadataMethod["Name"].encode("utf-8")
+		name = scriptMetadataMethod["Name"]
 		methodAddr = get_addr(scriptMetadataMethod["MethodAddress"])
 		set_name(addr, name)
 		setEOLComment(addr, name)
@@ -84,4 +85,4 @@ if "Addresses" in data and "Addresses" in processFields:
 		make_function(start)
 		monitor.incrementProgress(1)
 
-print 'Script finished!'
+print('Script finished!')
