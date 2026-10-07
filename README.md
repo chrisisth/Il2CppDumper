@@ -1,5 +1,33 @@
 # Il2CppDumper + ghidra 12.1 support
 
+# Naming IL2CPP functions in Ghidra with Il2CppDumper
+
+## 1. Run the Il2CppDumper exe first
+1. Run `Il2CppDumper.exe`.
+2. Select `libil2cpp.so` (arm64-v8a) and then the matching `global-metadata.dat`.
+3. Output folder is the script folder.
+4. When it finishes, the folder contains `dump.cs`, `script.json`, `stringliteral.json`, etc.
+
+## 2. Start Ghidra with PyGhidra
+Ghidra 12+ needs PyGhidra to run Python scripts.
+
+1. pip install [pyghidra](https://pypi.org/project/pyghidra/)
+2. open new pyghidraw.exe
+
+Open your project and the imported `libil2cpp.so`.
+
+## 3. Add the script
+1. Open **Window → Script Manager**.
+2. Click **Manage Script Directories** (list icon) and add the folder containing `ghidra3.py`,
+   or copy `ghidra3.py` into your `ghidra_scripts` folder.
+3. Search for `ghidra3.py` in the Script Manager.
+
+## 4. Run it and point to script.json
+1. Double-click `ghidra3.py` to run it. Or run the selected script with green play button
+2. A file dialog opens. Browse to your `Il2CppDumper-win-v...` folder and select **`script.json`**.
+3. Wait for `Script finished!`. This can take several minutes and Ghidra may look frozen.
+
+
 [![Build status](https://ci.appveyor.com/api/projects/status/anhqw33vcpmp8ofa?svg=true)](https://ci.appveyor.com/project/Perfare/il2cppdumper/branch/master/artifacts)
 
 中文说明请戳[这里](README.zh-CN.md)
