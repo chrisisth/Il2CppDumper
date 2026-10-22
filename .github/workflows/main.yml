@@ -1,0 +1,110 @@
+name: Build & Release
+
+on:
+  push:
+    branches: [master]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'v1.0'
+        required: false
+        type: string
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  PROJECT: Il2CppDumper/Il2CppDumper.csproj
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # nötig, um das Release anzulegen
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Version bestimmen
+        id: ver
+        shell: bash
+        run: |
+          TAG=""
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF_NAME}"
+          elif [[ -n "${{ github.event.inputs.tag }}" ]]; then
+            TAG="${{ github.event.inputs.tag }}"
+          fi
+          if [[ -n "$TAG" ]]; then
+            VERSION="$TAG"
+          else
+            VERSION="dev-${GITHUB_SHA::7}"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Version: $VERSION (Release-Tag: '${TAG:-keins}')"
+
+      - name: Restore
+        run: dotnet restore "$PROJECT"
+
+      # Portable Builds (benötigen installierte .NET-Runtime)
+      - name: Publish net8.0 (portable)
+        run: dotnet publish "$PROJECT" -c Release -f net8.0 --no-restore -o out/net8.0
+
+      - name: Publish net6.0 (portable)
+        run: dotnet publish "$PROJECT" -c Release -f net6.0 --no-restore -o out/net6.0
+
+      # Windows x64, self-contained (läuft ohne installierte .NET-Runtime)
+      - name: Publish win-x64 (self-contained)
+        run: |
+          dotnet publish "$PROJECT" -c Release -f net8.0 -r win-x64 \
+            --self-contained true \
+            -p:PublishSingleFile=true \
+            -p:IncludeNativeLibrariesForSelfExtract=true \
+            -o out/win-x64
+
+      - name: ZIP-Archive erstellen
+        shell: bash
+        run: |
+          V="${{ steps.ver.outputs.version }}"
+          mkdir -p dist
+          for target in win-x64 net8.0 net6.0; do
+            case "$target" in
+              win-x64) NAME="Il2CppDumper-win-${V}" ;;
+              *)       NAME="Il2CppDumper-${target}-${V}" ;;
+            esac
+            # Debug-Symbole (.pdb) brauchen wir nicht, DebugType ist embedded
+            (cd "out/${target}" && zip -r -q "../../dist/${NAME}.zip" . -x '*.pdb')
+          done
+          ls -lh dist
+
+      - name: Artefakte hochladen
+        uses: actions/upload-artifact@v4
+        with:
+          name: Il2CppDumper-${{ steps.ver.outputs.version }}
+          path: dist/*.zip
+          if-no-files-found: error
+
+      - name: GitHub Release erstellen
+        if: steps.ver.outputs.tag != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.ver.outputs.tag }}
+        run: |
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            echo "Release $TAG existiert bereits, lade Dateien neu hoch."
+            gh release upload "$TAG" dist/*.zip --clobber
+          else
+            gh release create "$TAG" dist/*.zip \
+              --title "Il2CppDumper $TAG" \
+              --generate-notes \
+              --target "$GITHUB_SHA"
+          fi
